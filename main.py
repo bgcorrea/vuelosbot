@@ -4,14 +4,13 @@ import time
 import random
 import json
 from datetime import datetime, timedelta
-from keep_alive import mantener_vivo
 
-# Configuración
+# Configuración desde Railway (variables de entorno)
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 API_URL = "https://www.flylevel.com/nwe/flights/api/calendar/"
 CURRENCY = "USD"
-THRESHOLD = 600  # Umbral máximo de alerta
+THRESHOLD = 600  # Puedes mover esto a variable también si quieres
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0',
@@ -40,7 +39,7 @@ def enviar_mensaje(texto):
 
 def obtener_precios_ida(origen, destino, año, mes):
     try:
-        time.sleep(random.uniform(1, 3))
+        time.sleep(random.uniform(0.5, 1.5))  # más rápido
         params = {
             "triptype": "OW",
             "origin": origen,
@@ -50,15 +49,11 @@ def obtener_precios_ida(origen, destino, año, mes):
             "currencyCode": CURRENCY
         }
         print(f"🔍 Consultando: {origen} → {destino} ({mes:02d}/{año})")
-        resp = requests.get(API_URL,
-                            params=params,
-                            headers=HEADERS,
-                            timeout=30)
+        resp = requests.get(API_URL, params=params, headers=HEADERS, timeout=20)
 
         if resp.status_code == 200:
             data = resp.json()
-            dias = data.get("dayPrices") or data.get("data", {}).get(
-                "dayPrices", [])
+            dias = data.get("dayPrices") or data.get("data", {}).get("dayPrices", [])
             print(f"✅ Recibidos {len(dias)} días para {mes:02d}/{año}")
             return dias
         elif resp.status_code == 429:
@@ -80,7 +75,7 @@ def buscar_mejores_ofertas(origen="SCL", destino="BCN", umbral=THRESHOLD):
     hoy = datetime.today()
     dias_ida_global = []
 
-    for i in range(12):  # Próximos 12 meses
+    for i in range(6):  # Solo próximos 6 meses
         fecha = hoy + timedelta(days=i * 30)
         anio = fecha.year
         mes = fecha.month
@@ -98,9 +93,8 @@ def buscar_mejores_ofertas(origen="SCL", destino="BCN", umbral=THRESHOLD):
                 continue
 
         dias_ida_global.extend(dias_validos)
-        time.sleep(random.uniform(2, 5))  # Delay entre meses
+        time.sleep(random.uniform(0.8, 2.0))  # más eficiente
 
-    # Ordenar por precio y limitar a las 5 mejores
     mejores_ofertas = sorted(dias_ida_global, key=lambda d: d["price"])[:5]
 
     resultados = []
@@ -115,26 +109,12 @@ def buscar_mejores_ofertas(origen="SCL", destino="BCN", umbral=THRESHOLD):
 
 # === Inicio del bot ===
 if __name__ == "__main__":
-    mantener_vivo()
-    ofertas_enviadas = set()
+    print("🚀 Iniciando búsqueda de vuelos Santiago → Barcelona...")
+    mejores_ofertas = buscar_mejores_ofertas()
 
-    while True:
-        print("\n🚀 Buscando vuelos de ida Santiago → Barcelona...")
-        mejores_ofertas = buscar_mejores_ofertas()
-
-        nuevas_ofertas = [
-            o for o in mejores_ofertas if o not in ofertas_enviadas
-        ]
-
-        if nuevas_ofertas:
-            mensaje = "🎯 *¡Vuelos de ida baratos a Barcelona encontrados!*\n\n" + "\n\n".join(
-                nuevas_ofertas)
-            enviar_mensaje(mensaje)
-            print(
-                f"📱 Mensaje enviado con {len(nuevas_ofertas)} nuevas ofertas.")
-            ofertas_enviadas.update(nuevas_ofertas)
-        else:
-            print("❌ No se encontraron nuevas ofertas bajo el umbral.")
-
-        print("⏳ Esperando 2 minutos para la próxima búsqueda...\n")
-        time.sleep(120)
+    if mejores_ofertas:
+        mensaje = "🎯 *¡Vuelos de ida baratos a Barcelona encontrados!*\n\n" + "\n\n".join(mejores_ofertas)
+        enviar_mensaje(mensaje)
+        print(f"📱 Mensaje enviado con {len(mejores_ofertas)} ofertas.")
+    else:
+        print("❌ No se encontraron ofertas bajo el umbral.")
