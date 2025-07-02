@@ -1,3 +1,4 @@
+import os 
 import requests
 import time
 import random
@@ -6,8 +7,8 @@ from datetime import datetime, timedelta
 from keep_alive import mantener_vivo
 
 # Configuración
-TELEGRAM_TOKEN = "7840515299:AAGr1LGCYuTK-mAqW_OljftThoU2tSvSf4U"
-CHAT_ID = "1481522642"
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 API_URL = "https://www.flylevel.com/nwe/flights/api/calendar/"
 CURRENCY = "USD"
 THRESHOLD = 600  # Umbral máximo de alerta
